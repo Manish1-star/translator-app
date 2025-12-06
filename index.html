@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MwNisH AI Translator</title>
+    <title>MwNisH Live Translator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Image to Text Library -->
+    <!-- OCR Library -->
     <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<!-- Layout changed: items-start and pt-4 to keep header at top -->
-<body class="text-white min-h-screen flex flex-col items-center justify-start pt-4 p-2 relative overflow-x-hidden bg-[#0f172a]">
+<body class="text-white min-h-screen flex flex-col items-center justify-start pt-2 md:pt-4 p-2 relative overflow-x-hidden bg-[#0f172a]">
 
     <!-- Background -->
     <div class="fixed top-[-10%] left-[-10%] w-64 h-64 md:w-96 md:h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob pointer-events-none"></div>
@@ -19,17 +18,33 @@
 
     <div class="container relative z-10 max-w-5xl w-full bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-gray-700/50 flex flex-col mb-10">
         
-        <!-- Header (Fixed at Top) -->
+        <!-- Header with PROFILE -->
         <div class="p-4 bg-gray-800/60 border-b border-gray-700/50 flex justify-between items-center">
-            <h1 class="text-lg md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 flex items-center gap-2">
-                <i class="fas fa-robot text-blue-400"></i> MwNisH Translator
-            </h1>
-            <div class="flex gap-2">
-                <!-- NEW: Camera/Image Button -->
-                <label for="image-input" class="cursor-pointer bg-blue-600/20 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30 text-xs font-bold hover:bg-blue-600 hover:text-white transition flex items-center gap-1">
-                    <i class="fas fa-camera"></i> <span class="hidden md:inline">Scan Image</span>
+            
+            <!-- Left: Logo -->
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-language text-white"></i>
+                </div>
+                <h1 class="text-lg md:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                    MwNisH Translate
+                </h1>
+            </div>
+
+            <!-- Right: Profile & Camera -->
+            <div class="flex items-center gap-3">
+                <!-- Camera Button -->
+                <label for="image-input" class="cursor-pointer bg-gray-700/50 hover:bg-blue-600 text-gray-300 hover:text-white p-2 rounded-full transition shadow-md" title="Scan Image">
+                    <i class="fas fa-camera text-sm md:text-base"></i>
                 </label>
                 <input type="file" id="image-input" accept="image/*" class="hidden">
+
+                <!-- PROFILE PICTURE (Click to go to Portfolio) -->
+                <a href="https://manish1-star.github.io/manish-portfolio/" target="_blank" class="relative group cursor-pointer">
+                    <!-- Make sure 'profile.jpg' is in your GitHub folder -->
+                    <img src="profile.jpg" alt="Profile" class="w-9 h-9 md:w-10 md:h-10 rounded-full border-2 border-purple-500 object-cover shadow-lg group-hover:scale-105 transition">
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-gray-900 rounded-full"></span>
+                </a>
             </div>
         </div>
 
@@ -42,7 +57,7 @@
                     <select id="select-from" class="w-full bg-transparent text-gray-200 font-medium p-2 outline-none cursor-pointer text-sm md:text-base truncate"></select>
                 </div>
 
-                <button id="exchange" class="p-2 rounded-full bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white transition shadow-lg">
+                <button id="exchange" class="p-2 rounded-full bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white transition shadow-lg transform hover:rotate-180 duration-300">
                     <i class="fas fa-exchange-alt text-sm"></i>
                 </button>
 
@@ -57,7 +72,7 @@
                 <!-- Input Box -->
                 <div class="flex flex-col gap-2">
                     <div class="relative group h-full">
-                        <textarea id="text-from" class="w-full h-48 md:h-80 bg-gray-800/40 p-4 rounded-xl resize-none outline-none border border-gray-700 focus:border-blue-500/50 transition text-base md:text-lg text-gray-100 placeholder-gray-500" placeholder="Type, Paste or Speak..."></textarea>
+                        <textarea id="text-from" class="w-full h-40 md:h-80 bg-gray-800/40 p-4 rounded-xl resize-none outline-none border border-gray-700 focus:border-blue-500/50 transition text-base md:text-lg leading-relaxed text-gray-100 placeholder-gray-500" placeholder="Type here... (Auto translates)"></textarea>
                         
                         <!-- Tools -->
                         <div class="absolute bottom-2 left-2 right-2 flex justify-between items-center bg-gray-900/60 p-1 rounded-lg backdrop-blur-sm">
@@ -65,7 +80,7 @@
                                 <button id="mic-btn" class="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition shadow-lg">
                                     <i class="fas fa-microphone text-sm"></i>
                                 </button>
-                                <span id="ocr-status" class="text-[10px] text-yellow-400 hidden animate-pulse">Scanning Image...</span>
+                                <span id="status-text" class="text-[10px] text-blue-300 hidden animate-pulse">Processing...</span>
                             </div>
                             <div class="flex items-center gap-3 text-gray-400">
                                 <span id="char-count" class="text-[10px] font-mono">0/5000</span>
@@ -78,7 +93,7 @@
                 <!-- Output Box -->
                 <div class="flex flex-col gap-2">
                     <div class="relative group h-full">
-                        <textarea id="text-to" class="w-full h-48 md:h-80 bg-gray-900/60 p-4 rounded-xl resize-none outline-none border border-gray-700 transition text-base md:text-lg text-blue-100 placeholder-gray-600" placeholder="Translation..." readonly></textarea>
+                        <textarea id="text-to" class="w-full h-40 md:h-80 bg-gray-900/60 p-4 rounded-xl resize-none outline-none border border-gray-700 transition text-base md:text-lg leading-relaxed text-blue-100 placeholder-gray-600" placeholder="Translation appears here..." readonly></textarea>
                         
                         <!-- Tools -->
                         <div class="absolute bottom-2 right-2 flex gap-2 text-gray-400 bg-gray-900/60 p-1 rounded-lg backdrop-blur-sm">
@@ -91,26 +106,18 @@
                 </div>
             </div>
 
-            <!-- Translate Button -->
-            <button id="translate-btn" class="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-lg text-white hover:shadow-lg hover:scale-[1.01] transition duration-200 flex items-center justify-center gap-2">
-                Translate <i class="fas fa-bolt text-yellow-300"></i>
+            <!-- Manual Translate Button (Optional now) -->
+            <button id="translate-btn" class="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-lg text-white hover:shadow-lg active:scale-[0.98] transition duration-200">
+                Translate Now
             </button>
 
         </div>
-
+        
+        <!-- Footer -->
         <div class="p-3 bg-gray-900/50 text-center border-t border-gray-700/30">
             <p class="text-[10px] text-gray-500">
-                &copy; 2025 Manish Ghimire. <button onclick="openPrivacy()" class="text-blue-400 hover:underline">Privacy</button>
+                &copy; 2025 Manish Ghimire
             </p>
-        </div>
-    </div>
-
-    <!-- Privacy Modal (Same as before) -->
-    <div id="privacy-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-gray-800 w-full max-w-lg rounded-2xl border border-gray-700 p-6 shadow-2xl">
-            <h2 class="text-xl font-bold mb-4">Privacy Policy</h2>
-            <p class="text-sm text-gray-300 mb-4">We do not store your voice, text, or images. All processing is done in real-time.</p>
-            <button onclick="closePrivacy()" class="px-4 py-2 bg-blue-600 rounded text-sm">Close</button>
         </div>
     </div>
 
