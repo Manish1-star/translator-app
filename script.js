@@ -8,7 +8,7 @@ const speakBtn = document.getElementById("speak-btn");
 const exchangeBtn = document.getElementById("exchange");
 const charCount = document.getElementById("char-count");
 const imageInput = document.getElementById("image-input");
-const ocrStatus = document.getElementById("ocr-status");
+const statusTxt = document.getElementById("status-text");
 
 // 1. POPULATE LANGUAGES
 if (typeof countries !== 'undefined') {
@@ -17,7 +17,7 @@ if (typeof countries !== 'undefined') {
     Object.keys(countries).forEach((code) => {
         let selectedFrom = code === "ne-NP" ? "selected" : "";
         let selectedTo = code === "en-US" ? "selected" : "";
-        let langName = countries[code].split('(')[0].trim(); // Cleaner names
+        let langName = countries[code].split('(')[0].trim();
         
         let optionFrom = `<option value="${code}" ${selectedFrom}>${langName}</option>`;
         let optionTo = `<option value="${code}" ${selectedTo}>${langName}</option>`;
@@ -26,115 +26,129 @@ if (typeof countries !== 'undefined') {
     });
 }
 
+// 2. REAL TIME TYPING LOGIC (Debounce)
+// This waits for you to STOP typing for 1 second before translating
+let typingTimer;
+const doneTypingInterval = 1000; // 1 second
+
 textFrom.addEventListener("input", () => {
     charCount.innerText = `${textFrom.value.length}/5000`;
+    clearTimeout(typingTimer);
+    
+    if (textFrom.value.trim().length > 0) {
+        statusTxt.innerText = "Typing...";
+        statusTxt.classList.remove("hidden");
+        typingTimer = setTimeout(translateText, doneTypingInterval);
+    } else {
+        textTo.value = "";
+        statusTxt.classList.add("hidden");
+    }
 });
 
-// 2. ULTRA FAST TRANSLATION LOGIC (Parallel Processing)
+// 3. ROBUST TRANSLATION LOGIC
 async function translateText() {
     let text = textFrom.value.trim();
     if (!text) return;
 
-    textTo.value = "";
-    textTo.setAttribute("placeholder", "Translating...");
-    translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    statusTxt.innerText = "Translating...";
+    statusTxt.classList.remove("hidden");
+    translateBtn.innerText = "Translating...";
     translateBtn.disabled = true;
 
     let fromLang = selectFrom.value.split('-')[0];
     let toLang = selectTo.value.split('-')[0];
 
-    // Split text into chunks (approx 500 chars)
-    const chunks = splitText(text, 500); 
-    
     try {
-        // MAGIC HAPPENS HERE: Fetch ALL chunks at the same time (Parallel)
-        const promises = chunks.map(chunk => 
-            fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${fromLang}|${toLang}`)
-            .then(res => res.json())
-        );
-
-        // Wait for all to finish
-        const results = await Promise.all(promises);
+        // Use encodeURIComponent to handle special characters safely
+        const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
         
-        let translatedFullText = "";
-        results.forEach(data => {
-            if (data.responseData.translatedText) {
-                translatedFullText += data.responseData.translatedText + " ";
-            }
-        });
+        const response = await fetch(apiUrl);
+        const data = await response.json();
 
-        textTo.value = translatedFullText.trim();
-        translateBtn.innerHTML = 'Translate <i class="fas fa-bolt text-yellow-300"></i>';
-        translateBtn.disabled = false;
+        if (data.responseData.translatedText) {
+            textTo.value = data.responseData.translatedText;
+        } else {
+            textTo.value = "Translation Error (Try shorter text)";
+        }
 
     } catch (error) {
-        textTo.value = "Error: Network issue.";
-        translateBtn.innerHTML = 'Try Again';
+        console.error(error);
+        textTo.value = "Network Error. Please check internet.";
+    } finally {
+        // Always reset UI even if error occurs
+        statusTxt.classList.add("hidden");
+        translateBtn.innerText = "Translate Now";
         translateBtn.disabled = false;
     }
-}
-
-function splitText(text, maxLength) {
-    const regex = new RegExp(`.{1,${maxLength}}(\\s|$)|\\S+?(\\s|$)`, 'g');
-    return text.match(regex) || [];
 }
 
 translateBtn.addEventListener("click", translateText);
 
-// 3. IMAGE TO TEXT (OCR - New Feature)
+// 4. IMAGE SCANNER (Optimized)
 imageInput.addEventListener("change", async () => {
     const file = imageInput.files[0];
     if (!file) return;
 
-    ocrStatus.innerText = "Scanning Image...";
-    ocrStatus.classList.remove("hidden");
-    textFrom.value = "Scanning image, please wait...";
+    statusTxt.innerText = "Scanning Image...";
+    statusTxt.classList.remove("hidden");
+    textFrom.value = "Scanning... please wait (this takes time on mobile)...";
 
     try {
-        const { data: { text } } = await Tesseract.recognize(file, 'eng', {
-            logger: m => console.log(m)
-        });
+        // Tesseract needs time to load core files
+        const { data: { text } } = await Tesseract.recognize(file, 'eng');
         
         textFrom.value = text;
-        ocrStatus.classList.add("hidden");
-        // Auto translate after scan
-        translateText();
+        translateText(); // Auto translate after scan
     } catch (error) {
         textFrom.value = "Error reading image.";
-        ocrStatus.classList.add("hidden");
+    } finally {
+        statusTxt.classList.add("hidden");
     }
 });
 
-// 4. EXCHANGE
+// 5. EXCHANGE
 exchangeBtn.addEventListener("click", () => {
     let tempLang = selectFrom.value;
     selectFrom.value = selectTo.value;
     selectTo.value = tempLang;
+    
     let tempText = textFrom.value;
     textFrom.value = textTo.value;
     textTo.value = tempText;
 });
 
-// 5. SPEECH RECOGNITION
+// 6. SPEECH RECOGNITION
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognition) {
     const recognition = new SpeechRecognition();
     recognition.lang = selectFrom.value;
-    recognition.interimResults = false; // Changed to false for better stability
+    recognition.interimResults = false;
 
     micBtn.addEventListener("click", () => {
         recognition.lang = selectFrom.value;
         try {
-            recognition.start();
-            micBtn.classList.add("recording"); // Visual cue
+            if (micBtn.classList.contains("recording")) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
         } catch (e) {
             recognition.stop();
             micBtn.classList.remove("recording");
         }
     });
 
+    recognition.onstart = () => {
+        micBtn.classList.add("recording");
+        statusTxt.innerText = "Listening...";
+        statusTxt.classList.remove("hidden");
+        textFrom.setAttribute("placeholder", "Listening...");
+    };
+
     recognition.onend = () => {
         micBtn.classList.remove("recording");
+        statusTxt.classList.add("hidden");
+        textFrom.setAttribute("placeholder", "Type here...");
         if(textFrom.value.trim().length > 0) translateText();
     };
 
@@ -145,32 +159,30 @@ if (SpeechRecognition) {
     micBtn.style.display = "none";
 }
 
-// 6. INSTANT TEXT TO SPEECH (Fixed)
+// 7. TEXT TO SPEECH
 function speakText(text) {
     if (!text) return;
     
-    // Immediately stop previous audio
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel(); // Stop old sound immediately
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = selectTo.value;
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        alert("Audio not supported on this browser.");
     }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = selectTo.value;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
 }
 
 speakBtn.addEventListener("click", () => {
     speakText(textTo.value);
 });
 
-// Copy & Privacy
+// Copy
 const copyToClipboard = (id) => {
     const field = document.getElementById(id);
     if(field.value) navigator.clipboard.writeText(field.value);
 };
 document.getElementById("copy-from").addEventListener("click", () => copyToClipboard("text-from"));
 document.getElementById("copy-to").addEventListener("click", () => copyToClipboard("text-to"));
-
-function openPrivacy() { document.getElementById('privacy-modal').classList.remove('hidden'); }
-function closePrivacy() { document.getElementById('privacy-modal').classList.add('hidden'); }
