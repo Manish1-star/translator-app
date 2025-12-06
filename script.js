@@ -7,73 +7,88 @@ const micBtn = document.getElementById("mic-btn");
 const speakBtn = document.getElementById("speak-btn");
 const exchangeBtn = document.getElementById("exchange");
 const statusTxt = document.getElementById("listening-status");
+const charCount = document.getElementById("char-count");
 
-// 1. Populate Languages (Display list from languages.js)
+// 1. POPULATE LANGUAGES
 if (typeof countries !== 'undefined') {
     selectFrom.innerHTML = "";
     selectTo.innerHTML = "";
-
     Object.keys(countries).forEach((code) => {
-        // Default Selection: Nepali -> English
         let selectedFrom = code === "ne-NP" ? "selected" : "";
         let selectedTo = code === "en-US" ? "selected" : "";
-
         let optionFrom = `<option value="${code}" ${selectedFrom}>${countries[code]}</option>`;
-        selectFrom.insertAdjacentHTML("beforeend", optionFrom);
-
         let optionTo = `<option value="${code}" ${selectedTo}>${countries[code]}</option>`;
+        selectFrom.insertAdjacentHTML("beforeend", optionFrom);
         selectTo.insertAdjacentHTML("beforeend", optionTo);
     });
 }
 
-// 2. Translation Logic
+// 2. CHARACTER COUNTER
+textFrom.addEventListener("input", () => {
+    let len = textFrom.value.length;
+    charCount.innerText = `${len} / 5000`;
+});
+
+// 3. UNLIMITED TRANSLATION LOGIC (Chunking)
 async function translateText() {
     let text = textFrom.value.trim();
     if (!text) return;
 
     textTo.setAttribute("placeholder", "Translating...");
-    translateBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Translating...';
+    translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    translateBtn.disabled = true;
 
-    // Extract language codes for API (e.g., 'ne-NP' -> 'ne')
     let fromLang = selectFrom.value.split('-')[0];
     let toLang = selectTo.value.split('-')[0];
 
-    try {
-        // Using Free MyMemory Translation API
-        const apiUrl = `https://api.mymemory.translated.net/get?q=${text}&langpair=${fromLang}|${toLang}`;
-        const response = await fetch(apiUrl);
-        const data = await response.json();
+    // Split text into chunks of ~500 chars (sentence aware)
+    const chunks = splitText(text, 450); 
+    let translatedFullText = "";
 
-        if(data.responseData.translatedText) {
-            textTo.value = data.responseData.translatedText;
+    try {
+        for (let i = 0; i < chunks.length; i++) {
+            // Update button to show progress
+            translateBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Part ${i+1}/${chunks.length}...`;
             
-            // Auto Speak after translation (Optional - remove // to enable)
-            // speakText(textTo.value); 
-        } else {
-            textTo.value = "Translation Error or Daily Limit Reached.";
+            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunks[i])}&langpair=${fromLang}|${toLang}`;
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+
+            if (data.responseData.translatedText) {
+                translatedFullText += data.responseData.translatedText + " ";
+            }
         }
-        translateBtn.innerHTML = 'Translate Now <i class="fas fa-arrow-right"></i>';
+
+        textTo.value = translatedFullText.trim();
+        translateBtn.innerHTML = 'Translate All Text <i class="fas fa-magic"></i>';
+        translateBtn.disabled = false;
 
     } catch (error) {
-        textTo.value = "Something went wrong! Please try again.";
-        translateBtn.innerHTML = 'Translate Now <i class="fas fa-arrow-right"></i>';
+        textTo.value = "Error: Check internet or try shorter text.";
+        translateBtn.innerHTML = 'Try Again';
+        translateBtn.disabled = false;
     }
+}
+
+// Helper: Split text smartly by sentences
+function splitText(text, maxLength) {
+    const regex = new RegExp(`.{1,${maxLength}}(\\s|$)|\\S+?(\\s|$)`, 'g');
+    return text.match(regex) || [];
 }
 
 translateBtn.addEventListener("click", translateText);
 
-// 3. Exchange Languages
+// 4. EXCHANGE
 exchangeBtn.addEventListener("click", () => {
     let tempLang = selectFrom.value;
     selectFrom.value = selectTo.value;
     selectTo.value = tempLang;
-    
     let tempText = textFrom.value;
     textFrom.value = textTo.value;
     textTo.value = tempText;
 });
 
-// 4. Speech to Text (Microphone)
+// 5. SPEECH RECOGNITION (Voice to Text)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
@@ -82,8 +97,7 @@ if (SpeechRecognition) {
     recognition.interimResults = true;
 
     micBtn.addEventListener("click", () => {
-        recognition.lang = selectFrom.value; // Update language before starting
-
+        recognition.lang = selectFrom.value;
         if (micBtn.classList.contains("recording")) {
             recognition.stop();
         } else {
@@ -94,51 +108,65 @@ if (SpeechRecognition) {
     recognition.onstart = () => {
         micBtn.classList.add("recording");
         statusTxt.classList.remove("hidden");
+        statusTxt.classList.add("flex");
         textFrom.setAttribute("placeholder", "Listening...");
     };
 
     recognition.onend = () => {
         micBtn.classList.remove("recording");
         statusTxt.classList.add("hidden");
-        textFrom.setAttribute("placeholder", "Type or Speak here...");
+        statusTxt.classList.remove("flex");
+        textFrom.setAttribute("placeholder", "Type or Paste unlimited text here...");
         
-        // Auto translate when speaking stops
+        // Auto translate after 1 second of silence
         if(textFrom.value.trim().length > 0) {
-            translateText();
+            setTimeout(translateText, 1000);
         }
     };
 
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         textFrom.value = transcript;
+        charCount.innerText = `${transcript.length} / 5000`;
     };
 } else {
     micBtn.style.display = "none";
-    alert("Your browser does not support Speech Recognition. Please use Google Chrome.");
 }
 
-// 5. Text to Speech (Speaker)
+// 6. TEXT TO SPEECH (Better Quality Attempt)
 function speakText(text) {
     if (!text) return;
-    window.speechSynthesis.cancel(); // Stop any previous speech
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = selectTo.value; // Speak in target language
-    utterance.rate = 0.9; // Speed (Normal)
+    utterance.lang = selectTo.value;
+    
+    // Try to find a better voice
+    const voices = window.speechSynthesis.getVoices();
+    // Prefer Google voices if available (usually sound better)
+    const targetVoice = voices.find(voice => voice.lang.includes(selectTo.value) && voice.name.includes('Google'));
+    
+    if (targetVoice) utterance.voice = targetVoice;
+    
+    utterance.rate = 1; 
     window.speechSynthesis.speak(utterance);
 }
+
+// Make sure voices are loaded
+window.speechSynthesis.onvoiceschanged = () => {
+    // Voices loaded
+};
 
 speakBtn.addEventListener("click", () => {
     speakText(textTo.value);
 });
 
-// Copy Buttons
+// Copy
 const copyToClipboard = (id) => {
     const field = document.getElementById(id);
     if(field.value) {
         navigator.clipboard.writeText(field.value);
-        // Optional: Show a small toast or alert
-        // alert("Copied to clipboard!");
+        // Visual feedback could be added here
     }
 };
 document.getElementById("copy-from").addEventListener("click", () => copyToClipboard("text-from"));
