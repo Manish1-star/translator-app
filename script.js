@@ -16,6 +16,10 @@ if (typeof countries !== 'undefined') {
     Object.keys(countries).forEach((code) => {
         let selectedFrom = code === "ne-NP" ? "selected" : "";
         let selectedTo = code === "en-US" ? "selected" : "";
+        
+        // Shorten language names for mobile display if needed
+        let langName = countries[code].split('(')[0].trim();
+        
         let optionFrom = `<option value="${code}" ${selectedFrom}>${countries[code]}</option>`;
         let optionTo = `<option value="${code}" ${selectedTo}>${countries[code]}</option>`;
         selectFrom.insertAdjacentHTML("beforeend", optionFrom);
@@ -26,10 +30,10 @@ if (typeof countries !== 'undefined') {
 // 2. CHARACTER COUNTER
 textFrom.addEventListener("input", () => {
     let len = textFrom.value.length;
-    charCount.innerText = `${len} / 5000`;
+    charCount.innerText = `${len}/5000`;
 });
 
-// 3. UNLIMITED TRANSLATION LOGIC (Chunking)
+// 3. UNLIMITED TRANSLATION LOGIC
 async function translateText() {
     let text = textFrom.value.trim();
     if (!text) return;
@@ -41,15 +45,11 @@ async function translateText() {
     let fromLang = selectFrom.value.split('-')[0];
     let toLang = selectTo.value.split('-')[0];
 
-    // Split text into chunks of ~500 chars (sentence aware)
     const chunks = splitText(text, 450); 
     let translatedFullText = "";
 
     try {
         for (let i = 0; i < chunks.length; i++) {
-            // Update button to show progress
-            translateBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Part ${i+1}/${chunks.length}...`;
-            
             const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunks[i])}&langpair=${fromLang}|${toLang}`;
             const response = await fetch(apiUrl);
             const data = await response.json();
@@ -60,17 +60,16 @@ async function translateText() {
         }
 
         textTo.value = translatedFullText.trim();
-        translateBtn.innerHTML = 'Translate All Text <i class="fas fa-magic"></i>';
+        translateBtn.innerHTML = 'Translate Text <i class="fas fa-magic"></i>';
         translateBtn.disabled = false;
 
     } catch (error) {
-        textTo.value = "Error: Check internet or try shorter text.";
+        textTo.value = "Error: Please try again later.";
         translateBtn.innerHTML = 'Try Again';
         translateBtn.disabled = false;
     }
 }
 
-// Helper: Split text smartly by sentences
 function splitText(text, maxLength) {
     const regex = new RegExp(`.{1,${maxLength}}(\\s|$)|\\S+?(\\s|$)`, 'g');
     return text.match(regex) || [];
@@ -88,7 +87,7 @@ exchangeBtn.addEventListener("click", () => {
     textTo.value = tempText;
 });
 
-// 5. SPEECH RECOGNITION (Voice to Text)
+// 5. SPEECH RECOGNITION
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
@@ -116,9 +115,8 @@ if (SpeechRecognition) {
         micBtn.classList.remove("recording");
         statusTxt.classList.add("hidden");
         statusTxt.classList.remove("flex");
-        textFrom.setAttribute("placeholder", "Type or Paste unlimited text here...");
+        textFrom.setAttribute("placeholder", "Type or Paste text here...");
         
-        // Auto translate after 1 second of silence
         if(textFrom.value.trim().length > 0) {
             setTimeout(translateText, 1000);
         }
@@ -127,13 +125,13 @@ if (SpeechRecognition) {
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         textFrom.value = transcript;
-        charCount.innerText = `${transcript.length} / 5000`;
+        charCount.innerText = `${transcript.length}/5000`;
     };
 } else {
     micBtn.style.display = "none";
 }
 
-// 6. TEXT TO SPEECH (Better Quality Attempt)
+// 6. TEXT TO SPEECH
 function speakText(text) {
     if (!text) return;
     window.speechSynthesis.cancel();
@@ -141,33 +139,34 @@ function speakText(text) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = selectTo.value;
     
-    // Try to find a better voice
     const voices = window.speechSynthesis.getVoices();
-    // Prefer Google voices if available (usually sound better)
     const targetVoice = voices.find(voice => voice.lang.includes(selectTo.value) && voice.name.includes('Google'));
     
     if (targetVoice) utterance.voice = targetVoice;
     
-    utterance.rate = 1; 
+    utterance.rate = 0.9; 
     window.speechSynthesis.speak(utterance);
 }
-
-// Make sure voices are loaded
-window.speechSynthesis.onvoiceschanged = () => {
-    // Voices loaded
-};
 
 speakBtn.addEventListener("click", () => {
     speakText(textTo.value);
 });
 
-// Copy
+// Copy Logic
 const copyToClipboard = (id) => {
     const field = document.getElementById(id);
     if(field.value) {
         navigator.clipboard.writeText(field.value);
-        // Visual feedback could be added here
     }
 };
 document.getElementById("copy-from").addEventListener("click", () => copyToClipboard("text-from"));
 document.getElementById("copy-to").addEventListener("click", () => copyToClipboard("text-to"));
+
+// 7. PRIVACY POLICY MODAL LOGIC (New)
+function openPrivacy() {
+    document.getElementById('privacy-modal').classList.remove('hidden');
+}
+
+function closePrivacy() {
+    document.getElementById('privacy-modal').classList.add('hidden');
+}
