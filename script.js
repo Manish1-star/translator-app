@@ -6,8 +6,9 @@ const translateBtn = document.getElementById("translate-btn");
 const micBtn = document.getElementById("mic-btn");
 const speakBtn = document.getElementById("speak-btn");
 const exchangeBtn = document.getElementById("exchange");
-const statusTxt = document.getElementById("listening-status");
 const charCount = document.getElementById("char-count");
+const imageInput = document.getElementById("image-input");
+const ocrStatus = document.getElementById("ocr-status");
 
 // 1. POPULATE LANGUAGES
 if (typeof countries !== 'undefined') {
@@ -16,28 +17,25 @@ if (typeof countries !== 'undefined') {
     Object.keys(countries).forEach((code) => {
         let selectedFrom = code === "ne-NP" ? "selected" : "";
         let selectedTo = code === "en-US" ? "selected" : "";
+        let langName = countries[code].split('(')[0].trim(); // Cleaner names
         
-        // Shorten language names for mobile display if needed
-        let langName = countries[code].split('(')[0].trim();
-        
-        let optionFrom = `<option value="${code}" ${selectedFrom}>${countries[code]}</option>`;
-        let optionTo = `<option value="${code}" ${selectedTo}>${countries[code]}</option>`;
+        let optionFrom = `<option value="${code}" ${selectedFrom}>${langName}</option>`;
+        let optionTo = `<option value="${code}" ${selectedTo}>${langName}</option>`;
         selectFrom.insertAdjacentHTML("beforeend", optionFrom);
         selectTo.insertAdjacentHTML("beforeend", optionTo);
     });
 }
 
-// 2. CHARACTER COUNTER
 textFrom.addEventListener("input", () => {
-    let len = textFrom.value.length;
-    charCount.innerText = `${len}/5000`;
+    charCount.innerText = `${textFrom.value.length}/5000`;
 });
 
-// 3. UNLIMITED TRANSLATION LOGIC
+// 2. ULTRA FAST TRANSLATION LOGIC (Parallel Processing)
 async function translateText() {
     let text = textFrom.value.trim();
     if (!text) return;
 
+    textTo.value = "";
     textTo.setAttribute("placeholder", "Translating...");
     translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     translateBtn.disabled = true;
@@ -45,26 +43,32 @@ async function translateText() {
     let fromLang = selectFrom.value.split('-')[0];
     let toLang = selectTo.value.split('-')[0];
 
-    const chunks = splitText(text, 450); 
-    let translatedFullText = "";
-
+    // Split text into chunks (approx 500 chars)
+    const chunks = splitText(text, 500); 
+    
     try {
-        for (let i = 0; i < chunks.length; i++) {
-            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunks[i])}&langpair=${fromLang}|${toLang}`;
-            const response = await fetch(apiUrl);
-            const data = await response.json();
+        // MAGIC HAPPENS HERE: Fetch ALL chunks at the same time (Parallel)
+        const promises = chunks.map(chunk => 
+            fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${fromLang}|${toLang}`)
+            .then(res => res.json())
+        );
 
+        // Wait for all to finish
+        const results = await Promise.all(promises);
+        
+        let translatedFullText = "";
+        results.forEach(data => {
             if (data.responseData.translatedText) {
                 translatedFullText += data.responseData.translatedText + " ";
             }
-        }
+        });
 
         textTo.value = translatedFullText.trim();
-        translateBtn.innerHTML = 'Translate Text <i class="fas fa-magic"></i>';
+        translateBtn.innerHTML = 'Translate <i class="fas fa-bolt text-yellow-300"></i>';
         translateBtn.disabled = false;
 
     } catch (error) {
-        textTo.value = "Error: Please try again later.";
+        textTo.value = "Error: Network issue.";
         translateBtn.innerHTML = 'Try Again';
         translateBtn.disabled = false;
     }
@@ -76,6 +80,30 @@ function splitText(text, maxLength) {
 }
 
 translateBtn.addEventListener("click", translateText);
+
+// 3. IMAGE TO TEXT (OCR - New Feature)
+imageInput.addEventListener("change", async () => {
+    const file = imageInput.files[0];
+    if (!file) return;
+
+    ocrStatus.innerText = "Scanning Image...";
+    ocrStatus.classList.remove("hidden");
+    textFrom.value = "Scanning image, please wait...";
+
+    try {
+        const { data: { text } } = await Tesseract.recognize(file, 'eng', {
+            logger: m => console.log(m)
+        });
+        
+        textFrom.value = text;
+        ocrStatus.classList.add("hidden");
+        // Auto translate after scan
+        translateText();
+    } catch (error) {
+        textFrom.value = "Error reading image.";
+        ocrStatus.classList.add("hidden");
+    }
+});
 
 // 4. EXCHANGE
 exchangeBtn.addEventListener("click", () => {
@@ -89,62 +117,46 @@ exchangeBtn.addEventListener("click", () => {
 
 // 5. SPEECH RECOGNITION
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
 if (SpeechRecognition) {
     const recognition = new SpeechRecognition();
     recognition.lang = selectFrom.value;
-    recognition.interimResults = true;
+    recognition.interimResults = false; // Changed to false for better stability
 
     micBtn.addEventListener("click", () => {
         recognition.lang = selectFrom.value;
-        if (micBtn.classList.contains("recording")) {
-            recognition.stop();
-        } else {
+        try {
             recognition.start();
+            micBtn.classList.add("recording"); // Visual cue
+        } catch (e) {
+            recognition.stop();
+            micBtn.classList.remove("recording");
         }
     });
 
-    recognition.onstart = () => {
-        micBtn.classList.add("recording");
-        statusTxt.classList.remove("hidden");
-        statusTxt.classList.add("flex");
-        textFrom.setAttribute("placeholder", "Listening...");
-    };
-
     recognition.onend = () => {
         micBtn.classList.remove("recording");
-        statusTxt.classList.add("hidden");
-        statusTxt.classList.remove("flex");
-        textFrom.setAttribute("placeholder", "Type or Paste text here...");
-        
-        if(textFrom.value.trim().length > 0) {
-            setTimeout(translateText, 1000);
-        }
+        if(textFrom.value.trim().length > 0) translateText();
     };
 
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        textFrom.value = transcript;
-        charCount.innerText = `${transcript.length}/5000`;
+        textFrom.value = event.results[0][0].transcript;
     };
 } else {
     micBtn.style.display = "none";
 }
 
-// 6. TEXT TO SPEECH
+// 6. INSTANT TEXT TO SPEECH (Fixed)
 function speakText(text) {
     if (!text) return;
-    window.speechSynthesis.cancel();
+    
+    // Immediately stop previous audio
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = selectTo.value;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const targetVoice = voices.find(voice => voice.lang.includes(selectTo.value) && voice.name.includes('Google'));
-    
-    if (targetVoice) utterance.voice = targetVoice;
-    
-    utterance.rate = 0.9; 
+    utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
 }
 
@@ -152,21 +164,13 @@ speakBtn.addEventListener("click", () => {
     speakText(textTo.value);
 });
 
-// Copy Logic
+// Copy & Privacy
 const copyToClipboard = (id) => {
     const field = document.getElementById(id);
-    if(field.value) {
-        navigator.clipboard.writeText(field.value);
-    }
+    if(field.value) navigator.clipboard.writeText(field.value);
 };
 document.getElementById("copy-from").addEventListener("click", () => copyToClipboard("text-from"));
 document.getElementById("copy-to").addEventListener("click", () => copyToClipboard("text-to"));
 
-// 7. PRIVACY POLICY MODAL LOGIC (New)
-function openPrivacy() {
-    document.getElementById('privacy-modal').classList.remove('hidden');
-}
-
-function closePrivacy() {
-    document.getElementById('privacy-modal').classList.add('hidden');
-}
+function openPrivacy() { document.getElementById('privacy-modal').classList.remove('hidden'); }
+function closePrivacy() { document.getElementById('privacy-modal').classList.add('hidden'); }
