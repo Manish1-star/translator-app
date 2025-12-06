@@ -8,7 +8,7 @@ const speakBtn = document.getElementById("speak-btn");
 const exchangeBtn = document.getElementById("exchange");
 const charCount = document.getElementById("char-count");
 const imageInput = document.getElementById("image-input");
-const ocrStatus = document.getElementById("ocr-status");
+const statusTxt = document.getElementById("status-text");
 
 // 1. POPULATE LANGUAGES
 if (typeof countries !== 'undefined') {
@@ -26,47 +26,46 @@ if (typeof countries !== 'undefined') {
     });
 }
 
-// 2. INPUT LISTENER (Debounce for Realtime)
+// 2. REAL-TIME TYPING LISTENER (Debounce Logic)
 let typingTimer;
-const doneTypingInterval = 1200; // 1.2 Seconds wait time
+const doneTypingInterval = 1000; // Wait 1 second after typing
 
 textFrom.addEventListener("input", () => {
     charCount.innerText = `${textFrom.value.length}/5000`;
     clearTimeout(typingTimer);
     
-    // Check length to prevent auto-translation on extremely long texts to save API calls
     if (textFrom.value.trim().length > 0) {
+        statusTxt.innerText = "Typing...";
+        statusTxt.classList.remove("hidden");
         typingTimer = setTimeout(translateText, doneTypingInterval);
     } else {
         textTo.value = "";
+        statusTxt.classList.add("hidden");
     }
 });
 
-// 3. SMART CHUNKING TRANSLATION LOGIC (THE FIX)
+// 3. TRANSLATION LOGIC (Smart Chunking for Unlimited Text)
 async function translateText() {
     let text = textFrom.value.trim();
     if (!text) return;
 
-    // Show processing status
-    textTo.setAttribute("placeholder", "Translating large text...");
-    translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    statusTxt.innerText = "Translating...";
+    statusTxt.classList.remove("hidden");
+    translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
     translateBtn.disabled = true;
 
     let fromLang = selectFrom.value.split('-')[0];
     let toLang = selectTo.value.split('-')[0];
 
-    // ✅ FIX: Split text into safe chunks of 400 characters max
-    // ensuring we don't break words in half.
+    // Split text into safe chunks (400 chars)
     const chunks = getSmartChunks(text, 400);
     
     let fullTranslation = "";
 
     try {
-        // Process chunks strictly one by one to avoid server rejection
+        // Process sequentially
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
-            
-            // Skip empty chunks
             if(!chunk.trim()) continue;
 
             const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${fromLang}|${toLang}`;
@@ -76,31 +75,29 @@ async function translateText() {
 
             if (data.responseData.translatedText) {
                 fullTranslation += data.responseData.translatedText + " ";
-            } else {
-                console.warn("Chunk error:", data);
             }
         }
 
-        // Show final result
         textTo.value = fullTranslation.trim();
         translateBtn.innerHTML = 'Translate Now';
         translateBtn.disabled = false;
 
     } catch (error) {
         console.error(error);
-        textTo.value = "Error: Network issue or API limit. Please wait a moment and try again.";
+        textTo.value = "Error: Check internet connection.";
         translateBtn.innerHTML = 'Try Again';
         translateBtn.disabled = false;
+    } finally {
+        statusTxt.classList.add("hidden");
     }
 }
 
-// ✅ HELPER: Smart Text Splitter (Splits by space, keeps words intact)
+// Helper: Split text smartly
 function getSmartChunks(str, maxLength) {
     const chunks = [];
     while (str.length > maxLength) {
-        // Find the last space within the limit to cut safely
         let p = str.substring(0, maxLength).lastIndexOf(" ");
-        if (p === -1) p = maxLength; // No space found, cut at limit
+        if (p === -1) p = maxLength;
         chunks.push(str.substring(0, p));
         str = str.substring(p).trim();
     }
@@ -115,28 +112,22 @@ imageInput.addEventListener("change", async () => {
     const file = imageInput.files[0];
     if (!file) return;
 
-    const ocrSpan = document.getElementById("listening-status"); 
-    // Use the status span for feedback
-    if(ocrSpan) {
-        ocrSpan.innerText = "Scanning Image...";
-        ocrSpan.classList.remove("hidden");
-        ocrSpan.classList.add("text-yellow-400");
-    }
-    
-    textFrom.value = "Scanning image... (this may take a few seconds)";
+    statusTxt.innerText = "Scanning Image...";
+    statusTxt.classList.remove("hidden");
+    textFrom.value = "Scanning image... please wait...";
 
     try {
         const { data: { text } } = await Tesseract.recognize(file, 'eng');
         textFrom.value = text;
-        translateText(); // Auto translate
+        translateText();
     } catch (error) {
-        textFrom.value = "Error reading image.";
+        textFrom.value = "Error scanning image.";
     } finally {
-        if(ocrSpan) ocrSpan.classList.add("hidden");
+        statusTxt.classList.add("hidden");
     }
 });
 
-// 5. EXCHANGE
+// 5. EXCHANGE BUTTON
 exchangeBtn.addEventListener("click", () => {
     let tempLang = selectFrom.value;
     selectFrom.value = selectTo.value;
@@ -157,23 +148,28 @@ if (SpeechRecognition) {
     micBtn.addEventListener("click", () => {
         recognition.lang = selectFrom.value;
         try {
-            if (micBtn.classList.contains("bg-red-500")) {
+            if (micBtn.classList.contains("recording")) {
                 recognition.stop();
-                micBtn.classList.remove("bg-red-500", "animate-pulse");
-                micBtn.classList.add("bg-blue-600");
             } else {
                 recognition.start();
-                micBtn.classList.remove("bg-blue-600");
-                micBtn.classList.add("bg-red-500", "animate-pulse");
             }
         } catch (e) {
             recognition.stop();
+            micBtn.classList.remove("recording");
         }
     });
 
+    recognition.onstart = () => {
+        micBtn.classList.add("recording");
+        statusTxt.innerText = "Listening...";
+        statusTxt.classList.remove("hidden");
+        textFrom.setAttribute("placeholder", "Listening...");
+    };
+
     recognition.onend = () => {
-        micBtn.classList.remove("bg-red-500", "animate-pulse");
-        micBtn.classList.add("bg-blue-600");
+        micBtn.classList.remove("recording");
+        statusTxt.classList.add("hidden");
+        textFrom.setAttribute("placeholder", "Type here...");
         if(textFrom.value.trim().length > 0) translateText();
     };
 
@@ -184,25 +180,60 @@ if (SpeechRecognition) {
     micBtn.style.display = "none";
 }
 
-// 7. TEXT TO SPEECH
+// 7. TEXT TO SPEECH (Natural Voice Optimizer) - ENGLISH UPDATED
 function speakText(text) {
     if (!text) return;
     
+    // Stop any currently playing audio
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = selectTo.value;
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
     }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = selectTo.value; // Target language from dropdown
+
+    // ⚡ MAGIC TRICK: Try to find a "Google" or "Natural" voice
+    const voices = window.speechSynthesis.getVoices();
+    
+    // 1. First, try to find a "Google" voice (Usually high quality)
+    let targetVoice = voices.find(voice => 
+        voice.lang.includes(selectTo.value) && voice.name.includes('Google')
+    );
+
+    // 2. If Google not found, try "Natural" voice (Great for Microsoft Edge)
+    if (!targetVoice) {
+        targetVoice = voices.find(voice => 
+            voice.lang.includes(selectTo.value) && voice.name.includes('Natural')
+        );
+    }
+
+    // 3. If neither found, fallback to the default system voice
+    if (!targetVoice) {
+        targetVoice = voices.find(voice => voice.lang.includes(selectTo.value));
+    }
+
+    // If a specific voice is found, set it
+    if (targetVoice) {
+        utterance.voice = targetVoice;
+    }
+
+    // Adjust Speed and Pitch
+    utterance.rate = 0.9;  // Slightly slower than normal for clarity
+    utterance.pitch = 1.0; // Normal pitch
+
+    window.speechSynthesis.speak(utterance);
 }
+
+// Ensure voices are loaded asynchronously
+window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+};
 
 speakBtn.addEventListener("click", () => {
     speakText(textTo.value);
 });
 
-// Copy Functions
+// Copy & Privacy Logic
 const copyToClipboard = (id) => {
     const field = document.getElementById(id);
     if(field.value) navigator.clipboard.writeText(field.value);
@@ -210,6 +241,5 @@ const copyToClipboard = (id) => {
 document.getElementById("copy-from").addEventListener("click", () => copyToClipboard("text-from"));
 document.getElementById("copy-to").addEventListener("click", () => copyToClipboard("text-to"));
 
-// Privacy Modal Logic
 function openPrivacy() { document.getElementById('privacy-modal').classList.remove('hidden'); }
 function closePrivacy() { document.getElementById('privacy-modal').classList.add('hidden'); }
