@@ -3,84 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MwNisH Global Translator</title>
-    <!-- Tailwind CSS for Design -->
+    <title>MwNisH Pro Translator | AI Powered</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome for Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+<body class="text-white min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <div class="container max-w-4xl w-full bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-700">
+    <!-- Background Blobs for Modern Look -->
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+
+    <div class="container relative z-10 max-w-5xl w-full bg-gray-900/60 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-gray-700/50">
         
         <!-- Header -->
-        <div class="p-5 bg-gradient-to-r from-blue-600 to-purple-600 flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
-                <i class="fas fa-globe-asia"></i> MwNisH Translator
+        <div class="p-6 border-b border-gray-700/50 flex justify-between items-center bg-gray-800/40">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 flex items-center gap-2">
+                <i class="fas fa-globe text-blue-400"></i> MwNisH Translator
             </h1>
-            <span class="text-xs font-bold bg-white/20 px-3 py-1 rounded-full animate-pulse">Voice Enabled 🎙️</span>
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-medium bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30">
+                    Pro Version
+                </span>
+            </div>
         </div>
 
-        <!-- Translator Body -->
-        <div class="p-6">
+        <!-- Main Content -->
+        <div class="p-6 md:p-8">
             
-            <!-- Language Selection -->
-            <div class="flex flex-col md:flex-row gap-4 justify-between mb-6 bg-gray-700 p-3 rounded-xl border border-gray-600">
-                <select id="select-from" class="bg-transparent text-white font-semibold outline-none w-full md:w-1/3 cursor-pointer text-sm md:text-base"></select>
+            <!-- Language Controls -->
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between mb-8 bg-gray-800/50 p-2 rounded-2xl border border-gray-700/50">
+                <div class="w-full md:w-5/12">
+                    <select id="select-from" class="w-full bg-transparent text-gray-200 font-medium p-3 outline-none cursor-pointer hover:bg-gray-700/30 rounded-xl transition"></select>
+                </div>
 
-                <button id="exchange" class="text-gray-400 hover:text-white transition transform hover:rotate-180">
-                    <i class="fas fa-exchange-alt text-xl"></i>
+                <button id="exchange" class="p-3 rounded-full bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white transition shadow-lg transform hover:rotate-180 duration-300">
+                    <i class="fas fa-exchange-alt"></i>
                 </button>
 
-                <select id="select-to" class="bg-transparent text-white font-semibold outline-none w-full md:w-1/3 cursor-pointer text-sm md:text-base"></select>
+                <div class="w-full md:w-5/12">
+                    <select id="select-to" class="w-full bg-transparent text-gray-200 font-medium p-3 outline-none cursor-pointer hover:bg-gray-700/30 rounded-xl transition"></select>
+                </div>
             </div>
 
-            <!-- Text Areas -->
-            <div class="grid md:grid-cols-2 gap-6">
+            <!-- Translation Area -->
+            <div class="grid md:grid-cols-2 gap-6 relative">
                 
                 <!-- Input Box -->
-                <div class="relative group">
-                    <textarea id="text-from" class="w-full h-64 bg-gray-900/50 p-4 rounded-xl resize-none outline-none border border-gray-600 focus:border-blue-500 transition text-lg text-gray-200" placeholder="यहाँ बोल्नुहोस् वा लेख्नुहोस्..."></textarea>
-                    
-                    <div class="absolute bottom-3 right-3 flex gap-2">
-                        <!-- MIC BUTTON -->
-                        <button id="mic-btn" class="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition shadow-lg tooltip" title="Speak">
-                            <i class="fas fa-microphone"></i>
-                        </button>
-                        <button id="copy-from" class="text-gray-400 hover:text-white p-2"><i class="fas fa-copy"></i></button>
-                    </div>
-                    
-                    <div class="absolute bottom-4 left-4">
-                        <span id="listening-status" class="hidden text-green-400 text-xs font-bold flex items-center gap-1">
-                            <span class="w-2 h-2 bg-green-400 rounded-full animate-ping"></span> Listening...
-                        </span>
+                <div class="flex flex-col gap-2">
+                    <div class="relative group h-full">
+                        <textarea id="text-from" class="w-full h-80 bg-gray-800/40 p-5 rounded-2xl resize-none outline-none border border-gray-700 focus:border-blue-500/50 focus:bg-gray-800/60 transition text-lg leading-relaxed text-gray-100 placeholder-gray-500 shadow-inner" placeholder="Type or Paste unlimited text here..." maxlength="5000"></textarea>
+                        
+                        <!-- Tools -->
+                        <div class="absolute bottom-4 left-4 right-4 flex justify-between items-center">
+                            <div class="flex gap-2">
+                                <button id="mic-btn" class="w-10 h-10 rounded-full bg-blue-600/90 hover:bg-blue-500 text-white flex items-center justify-center transition shadow-lg backdrop-blur-sm" title="Speak">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                                <span id="listening-status" class="hidden text-green-400 text-xs font-bold items-center gap-1 bg-gray-900/80 px-2 rounded-lg">
+                                    <span class="w-2 h-2 bg-green-400 rounded-full animate-ping"></span> On
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-3 text-gray-400">
+                                <span id="char-count" class="text-xs font-mono">0 / 5000</span>
+                                <button id="copy-from" class="hover:text-white transition" title="Copy"><i class="far fa-copy"></i></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Output Box -->
-                <div class="relative group">
-                    <textarea id="text-to" class="w-full h-64 bg-gray-900/50 p-4 rounded-xl resize-none outline-none border border-gray-600 text-lg text-gray-200" placeholder="Translation..." readonly></textarea>
-                    
-                    <div class="absolute bottom-3 right-3 flex gap-2">
-                        <!-- SPEAKER BUTTON -->
-                        <button id="speak-btn" class="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center transition shadow-lg" title="Listen">
-                            <i class="fas fa-volume-up"></i>
-                        </button>
-                        <button id="copy-to" class="text-gray-400 hover:text-white p-2"><i class="fas fa-copy"></i></button>
+                <div class="flex flex-col gap-2">
+                    <div class="relative group h-full">
+                        <textarea id="text-to" class="w-full h-80 bg-gray-900/60 p-5 rounded-2xl resize-none outline-none border border-gray-700 transition text-lg leading-relaxed text-blue-100 placeholder-gray-600 shadow-inner" placeholder="Translation will appear here..." readonly></textarea>
+                        
+                        <!-- Tools -->
+                        <div class="absolute bottom-4 right-4 flex gap-3 text-gray-400">
+                            <button id="speak-btn" class="w-10 h-10 rounded-full bg-purple-600/90 hover:bg-purple-500 text-white flex items-center justify-center transition shadow-lg backdrop-blur-sm" title="Listen">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                            <button id="copy-to" class="hover:text-white transition pt-2" title="Copy"><i class="far fa-copy"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Translate Button -->
-            <button id="translate-btn" class="w-full mt-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-xl text-white hover:opacity-90 transition transform active:scale-95 shadow-xl flex justify-center items-center gap-2">
-                Translate Now <i class="fas fa-arrow-right"></i>
-            </button>
+            <!-- Action Button -->
+            <div class="mt-8 flex justify-center">
+                <button id="translate-btn" class="px-12 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-bold text-lg text-white hover:shadow-blue-500/30 hover:shadow-2xl hover:-translate-y-1 transition duration-300 flex items-center gap-3 w-full md:w-auto justify-center">
+                    <span>Translate All Text</span>
+                    <i class="fas fa-magic"></i>
+                </button>
+            </div>
 
         </div>
     </div>
 
-    <!-- Link JS Files -->
+    <!-- Scripts -->
     <script src="languages.js"></script>
     <script src="script.js"></script>
 </body>
